@@ -1,21 +1,9 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
-const fs = require("fs/promises");
 const path = require("path");
+const { createFolderIfNotExists } = require("../utils/createFolder");
 
 const TEST_URL = "https://sukidesu.dev.tiendada.com/admin";
-
-const createFolderIfNotExists = async (folderPath) => {
-  try {
-    await fs.access(folderPath);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      await fs.mkdir(folderPath, { recursive: true });
-    } else {
-      throw error;
-    }
-  }
-};
 
 describe("Login Test", () => {
   let browser;
@@ -173,5 +161,91 @@ describe("Login Test", () => {
     expect(mensajeError).toMatch(/Formato de email inválido/);
 
     await page.close();
+  });
+
+  test("Olvidé mi contraseña", async () => {
+    const page = await browser.newPage();
+    const folderPath = path.join(__dirname, "screenshots/test5");
+    await createFolderIfNotExists(folderPath);
+    await page.goto(`${TEST_URL}/login`);
+    await page.click(
+      ".MuiTypography-root.MuiLink-root.MuiLink-underlineHover.MuiTypography-colorPrimary"
+    );
+    await page.waitForSelector("#emailRecovery", { timeout: 7500 });
+    await page.waitForTimeout(2000);
+    await page.screenshot({
+      path: path.join(folderPath, "before-click.png"),
+    });
+    await page.type("#emailRecovery", process.env.TIENDADA_EMAIL);
+    await page.click(
+      ".MuiButtonBase-root.MuiButton-root.MuiButton-contained.jss277.MuiButton-containedPrimary.MuiButton-containedSizeLarge.MuiButton-sizeLarge.MuiButton-fullWidth"
+    );
+    await page.waitForSelector(".MuiTypography-root.MuiTypography-h6");
+    await page.waitForTimeout(2000);
+    await page.screenshot({
+      path: path.join(folderPath, "after-click.png"),
+    });
+    const text = await page.evaluate(() => {
+      const element = document.querySelector(
+        ".MuiTypography-root.MuiTypography-h6"
+      );
+      return element ? element.textContent : null;
+    });
+
+    expect(text).toEqual("Verifica tu correo electrónico");
+    //Aquí podemos añadir mas verificaciones
+  }, 10000);
+
+  test("Type input de la contraseña", async () => {
+    const page = await browser.newPage();
+    const folderPath = path.join(__dirname, "screenshots/test6");
+    await createFolderIfNotExists(folderPath);
+
+    await page.goto(`${TEST_URL}/login`);
+
+    const campoContrasena = await page.$("#password");
+    await campoContrasena.type("TuContrasena");
+
+    const valorCampoContrasena = await campoContrasena.evaluate(
+      (el) => el.value
+    );
+    console.log("Valor del campo de contraseña:", valorCampoContrasena);
+
+    const botonMostrarOcultar = await page.$(
+      ".MuiButtonBase-root.MuiIconButton-root.jss63.MuiIconButton-colorPrimary.MuiIconButton-sizeSmall"
+    );
+
+    if (botonMostrarOcultar) {
+      await botonMostrarOcultar.click();
+      await page.screenshot({
+        path: path.join(folderPath, "before-click.png"),
+      });
+      await page.waitForTimeout(1000);
+
+      const tipoCampoContrasenaDespuesDeMostrar =
+        await campoContrasena.evaluate((el) => el.type);
+      console.log(
+        "Tipo del campo de contraseña después de mostrar:",
+        tipoCampoContrasenaDespuesDeMostrar
+      );
+      expect(tipoCampoContrasenaDespuesDeMostrar).toEqual("text");
+
+      await botonMostrarOcultar.click();
+      await page.screenshot({
+        path: path.join(folderPath, "after-click.png"),
+      });
+      await page.waitForTimeout(1000);
+
+      const tipoCampoContrasenaAntesDeMostrar = await campoContrasena.evaluate(
+        (el) => el.type
+      );
+      console.log(
+        "Tipo del campo de contraseña después de ocultar:",
+        tipoCampoContrasenaAntesDeMostrar
+      );
+      expect(tipoCampoContrasenaAntesDeMostrar).toEqual("password");
+    } else {
+      console.error("No se encontró el botón de mostrar/ocultar contraseña");
+    }
   });
 });

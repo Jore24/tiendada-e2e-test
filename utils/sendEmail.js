@@ -1,0 +1,42 @@
+const nodemailer = require("nodemailer");
+const fs = require("fs");
+
+async function sendEmail() {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: "jorgeorepalomino24@gmail.com",
+        pass: "nnpe fyqb uojp tbbw",
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: "jorgeorepalomino24@gmail.com",
+      to: "jore24@autonoma.edu.pe",
+      subject: "Error en las pruebas automatizadas",
+      text: "¡Las pruebas automatizadas han fallado! Revisa el informe adjunto.",
+      attachments: [
+        {
+          // path: __dirname + "/after-login.png",
+          path: __dirname + "/../tests/screenshots/test2/after-click.png",
+          filename: "after-login.png",
+        },
+        {
+          path: __dirname + "/../tests/screenshots/test2/before-click.png",
+          filename: "before-click.png",
+        },
+      ],
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log("Email enviado correctamente");
+  } catch (error) {
+    console.error("Error al enviar el email:", error);
+  }
+}
+
+module.exports = sendEmail;

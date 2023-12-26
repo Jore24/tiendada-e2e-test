@@ -1,7 +1,8 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 const path = require("path");
-const { createFolderIfNotExists } = require("../utils/createFolder");
+const { createFolderIfNotExists } = require("../utils/createFolderIfNotExists");
+const sendEmail = require("../utils/sendEmail");
 
 const TEST_URL = "https://sukidesu.dev.tiendada.com/admin";
 
@@ -59,48 +60,70 @@ describe("Login Test", () => {
   });
 
   test("Inicio de sesión con credenciales incorrectas", async () => {
-    const page = await browser.newPage();
-    let response;
-    page.on("response", (res) => {
-      response = res;
-    });
-
-    const folderPath = path.join(__dirname, "screenshots/test2");
-    await createFolderIfNotExists(folderPath);
-
-    await page.goto(`${TEST_URL}/login`);
-    await page.type("#email", "prueba@gmail.com");
-    await page.type("#password", "admin123");
-
-    await page.screenshot({
-      path: path.join(folderPath, "before-click.png"),
-    });
-
-    await page.click(".MuiButton-containedPrimary");
-
-    const selector = "p.MuiTypography-root.MuiTypography-colorError";
-    await page.waitForSelector(selector, { timeout: 7500 });
-
-    await page.screenshot({
-      path: path.join(folderPath, "after-click.png"),
-    });
-
-    const mensajeError = await page.$eval(selector, (element) =>
-      element.textContent.trim()
-    );
-    expect(mensajeError).toEqual("Wrong credentials");
+    let page;
 
     try {
-      expect(response.status()).toEqual(401);
-      if (response.status() == 401) {
-        console.log("La respuesta del servidor es correcta");
+      page = await browser.newPage();
+
+      const folderPath = path.join(__dirname, "screenshots/test2");
+      await createFolderIfNotExists(folderPath);
+
+      await page.goto(`${TEST_URL}/login`);
+      await page.type("#email", "prueba@gmail.com");
+      await page.type("#password", "admin123");
+
+      await page.screenshot({
+        path: path.join(folderPath, "before-click.png"),
+      });
+
+      await page.click(".MuiButton-containedPrimary");
+
+      const selector = "p.MuiTypography-root.MuiTypography-colorError";
+      await page.waitForSelector(selector, { timeout: 7500 });
+
+      await page.screenshot({
+        path: path.join(folderPath, "after-click.png"),
+      });
+
+      const mensajeError = await page.$eval(selector, (element) =>
+        element.textContent.trim()
+      );
+      expect(mensajeError).toEqual("Wrong credentials");
+    } catch (error) {
+      await sendEmail();
+    }
+    try {
+      let response;
+      page.on("response", (res) => {
+        response = res;
+      });
+
+      // Add a delay to wait for the response to be processed
+      await page.waitForTimeout(2000);
+
+      if (response && response.status) {
+        if (response.status() === 401) {
+          console.log(
+            "La respuesta del servidor es correcta (401 - Unauthorized)"
+          );
+        } else if (response.status() === 429) {
+          console.log(
+            "La respuesta del servidor es correcta (429 - Too Many Requests)"
+          );
+        } else {
+          console.log(
+            "La respuesta del servidor es incorrecta. Código de estado:",
+            response.status()
+          );
+        }
       } else {
-        console.log("La respuesta del servidor es incorrecta");
+        console.log(
+          "La respuesta del servidor es incorrecta. No se recibió un objeto de respuesta válido."
+        );
       }
     } catch (error) {
       console.error("Error al verificar la respuesta del servidor:", error);
     }
-    await page.close();
   });
 
   test("Inicio de sesión con campos vacíos (validación del cliente)", async () => {

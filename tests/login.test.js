@@ -90,7 +90,7 @@ describe("Login Test", () => {
       );
       expect(mensajeError).toEqual("Wrong credentials");
     } catch (error) {
-      await sendEmail();
+      // await sendEmail();
     }
     try {
       let response;
